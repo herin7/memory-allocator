@@ -1,94 +1,95 @@
-// Think of the computer's memory as a giant, empty warehouse. The memory allocator is the warehouse manager.
-// When a program needs to store something (like a variable or an image), it asks the manager for space
-#include <iostream> 
-#include <unistd.h> //sbrc => breakpoint
-// (void*) means Pure Memory add. not a pointer which can be derefrenced ! 
+#include <iostream>
+#include <unistd.h>
 
-struct Block
-{
-    size_t size; 
-    bool isFree;
-    Block *next; 
-}
-//block -> meta data
-//block+1 -> actual data
+struct Block {
+    size_t size;
+    bool free;
+    Block* next;
+};
 
-//payload pointer
 #define META_SIZE sizeof(Block)
-Block *entry_point = nullptr;
 
-size_t helpAlign(size_t req)
-{
-    if (x % 8 == 0)
-        return x;
-    return x + (8 - (x % 8)); // converting into (lowerbound multiple of 8)
+Block* entry_point = nullptr;
+
+size_t align8(size_t x) {
+    if (x % 8 == 0) return x;
+    return x + (8 - (x % 8));
 }
-Block *request_space(Block *last, size_t size)
-{
-    Block *b = (Block *)brk(0);
-    request = sbrk(size + META_SIZE);
-    if (*request == -1)
-    {
-        cout << "Memory allocation Failed\n";
+
+Block* request_space(Block* last, size_t size) {
+    Block* block = (Block*)sbrk(0);
+    void* request = sbrk(size + META_SIZE);
+
+    if (request == (void*)-1) {
         return nullptr;
     }
-    b.size = size;
-    b.next = next;
-    b.isfree = false;
-    if (last)
-    {
-        last.next = b;
+
+    block->size = size;
+    block->free = false;
+    block->next = nullptr;
+
+    if (last) {
+        last->next = block;
     }
-    return b;
+
+    return block;
 }
 
-// malloc
-Block *my_malloc(size_t req)
-{
-    req = helpAlign(req);
-    if (entry_point == nullptr)
-    {
-        block = request_space(nullptr, req);
-        if (!block)
-            return nullptr;
-        entry_point = block;
+Block* find_free_block(size_t size) {
+    Block* curr = entry_point;
+    while (curr) {
+        if (curr->free && curr->size >= size)
+            return curr;
+        curr = curr->next;
     }
-    else
-    {
-        while (last->next)
-        {
-            last = last->next;
-        };
-        block = request_space(last, req);
-        if (!block)
-            return nullptr;
-        else
-        {
+    return nullptr;
+}
+
+void* my_malloc(size_t size) {
+    if (size == 0) return nullptr;
+
+    size = align8(size);
+    Block* block;
+
+    if (!entry_point) {
+        block = request_space(nullptr, size);
+        if (!block) return nullptr;
+        entry_point = block;
+    } else {
+        block = find_free_block(size);
+        if (!block) {
+            Block* last = entry_point;
+            while (last->next) last = last->next;
+            block = request_space(last, size);
+            if (!block) return nullptr;
+        } else {
             block->free = false;
         }
     }
+
     return (void*)(block + 1);
 }
 
-// local variable => Call stack
 void my_free(void* ptr) {
     if (!ptr) return;
 
-    // Step 1: recover header
     Block* block = (Block*)ptr - 1;
-
-    // Step 2: mark free
     block->free = true;
 
-    // Step 3: coalesce with next block if possible
     if (block->next && block->next->free) {
         block->size += META_SIZE + block->next->size;
         block->next = block->next->next;
     }
 }
 
-// Global variable => Heap =>because we need to access it anytime
-int main()
-{
+int main() {
+    int* x = (int*)my_malloc(sizeof(int));
+    *x = 42;
 
+    my_free(x);
+
+    int* y = (int*)my_malloc(sizeof(int));
+    *y = 100;
+
+    std::cout << *y << std::endl;
 }
