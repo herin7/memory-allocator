@@ -1,14 +1,19 @@
 // Think of the computer's memory as a giant, empty warehouse. The memory allocator is the warehouse manager.
 // When a program needs to store something (like a variable or an image), it asks the manager for space
-#include <unistd.h>
-#include <iostream>
+#include <iostream> 
+#include <unistd.h> //sbrc => breakpoint
 // (void*) means Pure Memory add. not a pointer which can be derefrenced ! 
+
 struct Block
 {
     size_t size; 
     bool isFree;
     Block *next; 
 }
+//block -> meta data
+//block+1 -> actual data
+
+//payload pointer
 #define META_SIZE sizeof(Block)
 Block *entry_point = nullptr;
 
@@ -62,12 +67,28 @@ Block *my_malloc(size_t req)
             block->free = false;
         }
     }
-
     return (void*)(block + 1);
 }
+
 // local variable => Call stack
+void my_free(void* ptr) {
+    if (!ptr) return;
+
+    // Step 1: recover header
+    Block* block = (Block*)ptr - 1;
+
+    // Step 2: mark free
+    block->free = true;
+
+    // Step 3: coalesce with next block if possible
+    if (block->next && block->next->free) {
+        block->size += META_SIZE + block->next->size;
+        block->next = block->next->next;
+    }
+}
+
 // Global variable => Heap =>because we need to access it anytime
 int main()
 {
-    
+
 }
