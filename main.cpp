@@ -20,22 +20,22 @@ struct Block
 #define META_SIZE sizeof(Block)
 
 thread_local Block *head = nullptr;
-Block* request_mmap(size_t size) {
+Block *request_mmap(size_t size)
+{
     size_t total = size + META_SIZE;
 
-    void* ptr = mmap(
+    void *ptr = mmap(
         nullptr,
         total,
         PROT_READ | PROT_WRITE,
         MAP_PRIVATE | MAP_ANONYMOUS,
         -1,
-        0
-    );
+        0);
 
     if (ptr == MAP_FAILED)
         return nullptr;
 
-    Block* block = (Block*)ptr;
+    Block *block = (Block *)ptr;
     block->size = size;
     block->free = false;
     block->is_mmap = true;
@@ -45,8 +45,9 @@ Block* request_mmap(size_t size) {
     return block;
 }
 
-void split_block(Block* block, size_t size) {
-    Block* new_block = (Block*)((char*)(block + 1) + size);
+void split_block(Block *block, size_t size)
+{
+    Block *new_block = (Block *)((char *)(block + 1) + size);
 
     new_block->size = block->size - size - META_SIZE;
     new_block->free = true;
@@ -55,11 +56,14 @@ void split_block(Block* block, size_t size) {
     block->size = size;
     block->next = new_block;
 }
-Block* find_prev_block(Block* node) {
-    if (node == head) return nullptr;
+Block *find_prev_block(Block *node)
+{
+    if (node == head)
+        return nullptr;
 
-    Block* cur = head;
-    while (cur && cur->next != node) {
+    Block *cur = head;
+    while (cur && cur->next != node)
+    {
         cur = cur->next;
     }
     return cur;
@@ -96,6 +100,7 @@ Block *request_space(Block *last, size_t size)
     block->size = size;
     block->free = false;
     block->next = nullptr;
+    block->is_mmap = false;
 
     if (last)
         last->next = block;
@@ -123,10 +128,13 @@ void *my_malloc(size_t size)
 {
     if (size == 0)
         return nullptr;
-    if (size >= LARGE_ALLOC_THRESHOLD) {
-        Block* block = request_mmap(size);
-        if (!block) return nullptr;
-        return (void*)(block + 1);
+    if (size >= LARGE_ALLOC_THRESHOLD)
+    {
+        size = align8(size);
+        Block *block = request_mmap(size);
+        if (!block)
+            return nullptr;
+        return (void *)(block + 1);
     }
     size = align8(size);
     Block *block;
@@ -148,10 +156,11 @@ void *my_malloc(size_t size)
         }
         else
         {
-        if (block->size >= size + META_SIZE + 8) {
-            split_block(block, size);
-            cout << "split block @" << block << endl;
-                                                 }
+            if (block->size >= size + META_SIZE + 8)
+            {
+                split_block(block, size);
+                cout << "split block @" << block << endl;
+            }
             block->free = false;
         }
     }
@@ -166,7 +175,8 @@ void my_free(void *ptr)
         return;
 
     Block *block = (Block *)ptr - 1;
-    if (block->is_mmap) {
+    if (block->is_mmap)
+    {
         munmap(block, block->size + META_SIZE);
         std::cout << "munmap block @" << block << std::endl;
         return;
@@ -179,10 +189,11 @@ void my_free(void *ptr)
     {
         block->size += META_SIZE + block->next->size;
         block->next = block->next->next;
-        cout << "merge @" << block << endl;
     }
-    Block* prev = find_prev_block(block);
-    if (prev && prev->free) {
+
+    Block *prev = find_prev_block(block);
+    if (prev && prev->free)
+    {
         prev->size += META_SIZE + block->size;
         prev->next = block->next;
     }
