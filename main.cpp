@@ -3,21 +3,48 @@
 // sbrk(n) returns  (void*)-1 in failure case (While requesting for n memory space)
 #include <iostream>
 #include <unistd.h>
+#include <sys/mman.h>
 #include <thread>
 #include <mutex>
 std::mutex brk_lock;
 using namespace std;
-
+size_t LARGE_ALLOC_THRESHOLD = 128 * 1024;
 struct Block
 {
     size_t size;
     bool free;
+    bool is_mmap;
     Block *next;
 };
 
 #define META_SIZE sizeof(Block)
 
 thread_local Block *head = nullptr;
+Block* request_mmap(size_t size) {
+    size_t total = size + META_SIZE;
+
+    void* ptr = mmap(
+        nullptr,
+        total,
+        PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS,
+        -1,
+        0
+    );
+
+    if (ptr == MAP_FAILED)
+        return nullptr;
+
+    Block* block = (Block*)ptr;
+    block->size = size;
+    block->free = false;
+    block->is_mmap = true;
+    block->next = nullptr;
+
+    std::cout << "mmap block @" << block << " size " << size << std::endl;
+    return block;
+}
+
 void split_block(Block* block, size_t size) {
     Block* new_block = (Block*)((char*)(block + 1) + size);
 
@@ -27,6 +54,15 @@ void split_block(Block* block, size_t size) {
 
     block->size = size;
     block->next = new_block;
+}
+Block* find_prev_block(Block* node) {
+    if (node == head) return nullptr;
+
+    Block* cur = head;
+    while (cur && cur->next != node) {
+        cur = cur->next;
+    }
+    return cur;
 }
 
 void heap_stats()
@@ -87,7 +123,11 @@ void *my_malloc(size_t size)
 {
     if (size == 0)
         return nullptr;
-
+    if (size >= LARGE_ALLOC_THRESHOLD) {
+        Block* block = request_mmap(size);
+        if (!block) return nullptr;
+        return (void*)(block + 1);
+    }
     size = align8(size);
     Block *block;
 
@@ -126,6 +166,11 @@ void my_free(void *ptr)
         return;
 
     Block *block = (Block *)ptr - 1;
+    if (block->is_mmap) {
+        munmap(block, block->size + META_SIZE);
+        std::cout << "munmap block @" << block << std::endl;
+        return;
+    }
     block->free = true;
 
     cout << "free @" << ptr << endl;
@@ -135,6 +180,11 @@ void my_free(void *ptr)
         block->size += META_SIZE + block->next->size;
         block->next = block->next->next;
         cout << "merge @" << block << endl;
+    }
+    Block* prev = find_prev_block(block);
+    if (prev && prev->free) {
+        prev->size += META_SIZE + block->size;
+        prev->next = block->next;
     }
 }
 
