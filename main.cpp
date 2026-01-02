@@ -4,6 +4,8 @@
 #include <iostream>
 #include <unistd.h>
 #include <thread>
+#include <mutex>
+std::mutex brk_lock;
 using namespace std;
 
 struct Block
@@ -40,6 +42,7 @@ size_t align8(size_t x)
 
 Block *request_space(Block *last, size_t size)
 {
+    std::lock_guard<std::mutex> lock(brk_lock);
     Block *block = (Block *)sbrk(0);
     if (sbrk(size + META_SIZE) == (void *)-1)
         return nullptr;
