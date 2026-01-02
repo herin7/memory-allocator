@@ -1,6 +1,8 @@
 # Custom C++ Memory Allocator
 A robust, thread-safe implementation of a memory allocator built from scratch in C++. This project demonstrates low-level memory management techniques, including heap manipulation via `sbrk`, large page allocation via `mmap`, and thread-local free lists.
 
+> **⚠️ COMPATIBILITY WARNING:** > This program relies on Unix-specific system calls (`sbrk`, `mmap`, `unistd.h`) and **will only work on Linux or WSL (Windows Subsystem for Linux)**. It will not compile on native Windows (MSVC) or macOS without significant modification.
+
 ## 🚀 Key Features
 
 * **Hybrid Allocation Strategy:**
