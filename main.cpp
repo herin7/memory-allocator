@@ -1,11 +1,15 @@
 // Minimal Version of malloc with debug logs
 // sbrk(0) returns pointer to top of the memory heap
 // sbrk(n) returns  (void*)-1 in failure case (While requesting for n memory space)
+//below to are just gives read write & acces permissions of data to cpu & | is bitwise OR operation
+        //  PROT_READ | PROT_WRITE,
+        // MAP_PRIVATE | MAP_ANONYMOUS,
 #include <iostream>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <thread>
 #include <mutex>
+
 std::mutex brk_lock;
 using namespace std;
 size_t LARGE_ALLOC_THRESHOLD = 128 * 1024;
@@ -219,7 +223,7 @@ int main()
     cout << "=== Single-threaded ===" << endl;
     char *a = (char *)my_malloc(sizeof(char));
     *a = 'A';
-    cout << "main alloc @" << (void *)a << " value " << *a << endl;
+    cout << "main alloc @" << (void *)a << " value " << a << endl;
     my_free(a);
     int *b = (int *)my_malloc(sizeof(int));
     *b = 42;
