@@ -18,6 +18,17 @@ struct Block
 #define META_SIZE sizeof(Block)
 
 thread_local Block *head = nullptr;
+void split_block(Block* block, size_t size) {
+    Block* new_block = (Block*)((char*)(block + 1) + size);
+
+    new_block->size = block->size - size - META_SIZE;
+    new_block->free = true;
+    new_block->next = block->next;
+
+    block->size = size;
+    block->next = new_block;
+}
+
 void heap_stats()
 {
     size_t used = 0, free = 0;
@@ -46,7 +57,6 @@ Block *request_space(Block *last, size_t size)
     Block *block = (Block *)sbrk(0);
     if (sbrk(size + META_SIZE) == (void *)-1)
         return nullptr;
-
     block->size = size;
     block->free = false;
     block->next = nullptr;
@@ -98,6 +108,10 @@ void *my_malloc(size_t size)
         }
         else
         {
+        if (block->size >= size + META_SIZE + 8) {
+            split_block(block, size);
+            cout << "split block @" << block << endl;
+                                                 }
             block->free = false;
         }
     }
